@@ -24,6 +24,10 @@ install:
 services:
   - docker
 
+script:
+  - go get .
+  - go test ./...
+
 after_success:
   - test -n "$TRAVIS_TAG" && docker login -u=harnash -p="$DOCKER_PASSWORD"
   - test -n "$TRAVIS_TAG" && snapcraft login --with snap.login
