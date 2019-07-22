@@ -22,7 +22,7 @@ services:
   - docker
 
 after_success:
-  - test -n "$TRAVIS_TAG" && docker login -u=myuser -p="$DOCKER_PASSWORD"
+  - test -n "$TRAVIS_TAG" && docker login -u=harnash -p="$DOCKER_PASSWORD"
   - test -n "$TRAVIS_TAG" && snapcraft login --with snap.login
 
 # calls goreleaser
