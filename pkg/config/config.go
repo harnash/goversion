@@ -1,5 +1,12 @@
 package config
 
+import (
+	"os"
+
+	"github.com/imdario/mergo"
+	"gopkg.in/yaml.v2"
+)
+
 type Configuration struct {
 	CurrentVersion    string                 `yaml:"current_version"`
 	NewVersion        string                 `yaml:"new_version"`
@@ -33,4 +40,24 @@ type ReleaseFile struct {
 func NewFromEnv() (*Configuration, error) {
 	cfg := &Configuration{}
 	return cfg, nil
+}
+
+func (c *Configuration) MergeWith(newConfig Configuration) error {
+	return mergo.Merge(c, newConfig)
+}
+
+func NewFromFile(file *os.File) (*Configuration, error) {
+	fileInfo, _ := (*file).Stat()
+	data := make([]byte, fileInfo.Size())
+	bytesRead, err := file.Read(data)
+	if err != nil {
+		return nil, err
+	}
+
+	fileConfig := &Configuration{}
+	if err = yaml.Unmarshal(data[:bytesRead], fileConfig); err != nil {
+		return nil, err
+	}
+
+	return fileConfig, err
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"strings"
 
@@ -18,6 +19,7 @@ func main() {
 	var noTag bool
 	var noCommit bool
 
+	configFile := app.Flag("config", "file which contains configuration").Default(".goversion").File()
 	app.Flag("dry-run", "enable dry-run mode (do not apply changes, use with 'verbose' mode").
 		BoolVar(&cfg.DryRunMode)
 	app.Flag("tag", "version will be tagged if possible (git/mercurial)").
@@ -37,6 +39,18 @@ func main() {
 	files := app.Arg("files", "files to process").ExistingFiles()
 
 	_ = kingpin.MustParse(app.Parse(os.Args[1:]))
+
+	if configFile != nil {
+		fileConfig, err := config.NewFromFile(*configFile)
+		if err == nil {
+			err = cfg.MergeWith(*fileConfig)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			log.Fatal(err)
+		}
+	}
 
 	println(*parts)
 	println(strings.Join(*files, "\n"))
