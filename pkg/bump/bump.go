@@ -24,6 +24,9 @@ func VersionBump(part string, configuration *config.Configuration) (map[string]s
 	var partValue string
 	versionParts := map[string]string{}
 	for idx, partName := range configuration.ParseTemplate.SubexpNames() {
+		if partName == "" {
+			continue
+		}
 		versionParts[partName] = matchedVersions[idx]
 		if partName == part {
 			partValue = matchedVersions[idx]
@@ -52,14 +55,14 @@ func VersionBump(part string, configuration *config.Configuration) (map[string]s
 		if err != nil {
 			return nil, errorx.IllegalFormat.New("could not parse version part to integer")
 		}
-		versionParts[part] = string(intVersion+1)
+		versionParts[part] = strconv.Itoa(intVersion+1)
 
 	}
 
 	return versionParts, nil
 }
 
-func ApplyVersionToFiles(files []string, newVersionParts map[string]string, configuration config.Configuration) error {
+func ApplyVersionToFiles(files []string, newVersionParts map[string]string, configuration *config.Configuration) error {
 	for _, file := range files {
 		contents, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -67,19 +70,22 @@ func ApplyVersionToFiles(files []string, newVersionParts map[string]string, conf
 		}
 
 		releaseFile, ok := configuration.ReleaseFiles[file]
-		if ok {
-
-		} else {
+		if !ok {
 			releaseFile = config.ReleaseFile{
 				ParseTemplate:     configuration.ParseTemplate,
 				SerializeTemplate: configuration.SerializeTemplate,
 			}
 		}
+		if len(releaseFile.SerializeTemplate) == 0 {
+			releaseFile.SerializeTemplate = configuration.SerializeTemplate
+		}
+		if releaseFile.ParseTemplate == nil {
+			releaseFile.ParseTemplate = configuration.ParseTemplate
+		}
 
-		var newVersion string
-		buff := bytes.NewBufferString(newVersion)
+		buff := bytes.NewBufferString("")
 		for idx, serializeTemplate := range releaseFile.SerializeTemplate {
-			tmpl, err := template.New(fmt.Sprintf("file_%s_temaplte_%d", file, idx)).Parse(serializeTemplate)
+			tmpl, err := template.New(fmt.Sprintf("file_%s_template_%d", file, idx)).Parse(serializeTemplate)
 			if err != nil {
 				return errorx.Decorate(err, "invalid version serialization template")
 			}
@@ -88,13 +94,14 @@ func ApplyVersionToFiles(files []string, newVersionParts map[string]string, conf
 			if err != nil {
 				continue
 			}
+			break
 		}
 
-		if newVersion == "" {
+		if buff.Len() == 0 {
 			return errorx.IllegalFormat.New("could not serialize new version using any available serialization templates")
 		}
 
-		contents = releaseFile.ParseTemplate.ReplaceAllLiteral(contents, []byte(newVersion))
+		contents = releaseFile.ParseTemplate.ReplaceAllLiteral(contents, buff.Bytes())
 		err = ioutil.WriteFile(file, contents, 0644)
 		if err != nil {
 			return errorx.Decorate(err, fmt.Sprintf("could not write file: %s", file))
