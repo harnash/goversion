@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
-	"strings"
+
+	"github.com/harnash/goversion/pkg/bump"
+
+	vcs2 "github.com/harnash/goversion/internal/vcs"
 
 	"github.com/harnash/goversion/pkg/config"
 
@@ -28,14 +32,14 @@ func main() {
 		BoolVar(&noTag)
 	app.Flag("allow-dirty", "proceed with bumping version even if repo has uncommitted changes").
 		BoolVar(&cfg.AllowDirty)
-	app.Flag("parse", "regex used to parse version string").StringVar(&cfg.ParseTemplate)
+	app.Flag("parse", "regex used to parse version string").RegexpVar(&cfg.ParseTemplate)
 	app.Flag("serialize", "format used to print version string").StringsVar(&cfg.SerializeTemplate)
 	app.Flag("commit", "should commit changes when finish").BoolVar(&cfg.CommitVersion)
 	app.Flag("no-commit", "should not commit changes when finish").BoolVar(&noCommit)
 	app.Flag("message", "template for message of the commit").StringVar(&cfg.CommitMessage)
 	app.Flag("new-version", "new version that should be set").StringVar(&cfg.NewVersion)
 
-	parts := app.Arg("part", "part of the version that should be bumped").Enum("patch", "minor", "major")
+	part := app.Arg("part", "part of the version that should be bumped").Enum("patch", "minor", "major")
 	files := app.Arg("files", "files to process").ExistingFiles()
 
 	_ = kingpin.MustParse(app.Parse(os.Args[1:]))
@@ -52,13 +56,14 @@ func main() {
 		}
 	}
 
-	println(*parts)
-	println(strings.Join(*files, "\n"))
-
-	if cfg.VerboseMode {
-		println("verbose mode on")
+	vcs, err := vcs2.NewVCS()
+	if err != nil {
+		log.Fatal(err)
 	}
-	if cfg.TagVersion {
-		println("tag version")
+	fmt.Println(vcs)
+
+	err = bump.VersionBump(*part, *files, cfg)
+	if err != nil {
+		log.Fatal(err)
 	}
 }

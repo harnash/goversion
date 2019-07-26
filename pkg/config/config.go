@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"regexp"
 
 	"github.com/imdario/mergo"
 	"gopkg.in/yaml.v2"
@@ -19,7 +20,7 @@ type Configuration struct {
 	AllowDirty        bool                   `yaml:"allow_dirty"`
 	List              bool                   `yaml:"list"`
 	SerializeTemplate []string               `yaml:"serialize"`
-	ParseTemplate     string                 `yaml:"parse"`
+	ParseTemplate     *regexp.Regexp         `yaml:"parse"`
 	ReleaseParts      map[string]ReleasePart `yaml:"parts"`
 	ReleaseFiles      map[string]ReleaseFile `yaml:"files"`
 }
@@ -31,10 +32,10 @@ type ReleasePart struct {
 }
 
 type ReleaseFile struct {
-	Search            string   `yaml:"search"`
-	Replace           string   `yaml:"replace"`
-	ParseTemplate     string   `yaml:"parse"`
-	SerializeTemplate []string `yaml:"serialize"`
+	Search            string         `yaml:"search"`
+	Replace           string         `yaml:"replace"`
+	ParseTemplate     *regexp.Regexp `yaml:"parse"`
+	SerializeTemplate []string       `yaml:"serialize"`
 }
 
 func NewFromEnv() (*Configuration, error) {
