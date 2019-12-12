@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/joomcode/errorx"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"text/template"
 
@@ -62,11 +63,34 @@ func VersionBump(part string, configuration *config.Configuration) (map[string]s
 	return versionParts, nil
 }
 
+func SerializeVersion(versionParts map[string]string, serializeTemplate []string) ([]byte, error) {
+	buff := bytes.NewBufferString("")
+	for idx, serializeTemplate := range serializeTemplate {
+		tmpl, err := template.New(fmt.Sprintf("template_%d", idx)).Parse(serializeTemplate)
+		if err != nil {
+			return nil, errorx.Decorate(err, "invalid version serialization template")
+		}
+
+		err = tmpl.Execute(buff, versionParts)
+		if err != nil {
+			continue
+		}
+		break
+	}
+
+	return buff.Bytes(), nil
+}
+
 func ApplyVersionToFiles(files []string, newVersionParts map[string]string, configuration *config.Configuration) error {
 	for _, file := range files {
 		contents, err := ioutil.ReadFile(file)
 		if err != nil {
 			return errorx.Decorate(err, fmt.Sprintf("could not open file: %s", file))
+		}
+
+		fileInfo, err := os.Stat(file)
+		if err != nil {
+			return errorx.Decorate(err, fmt.Sprintf("could not get stat info for file: %s", file))
 		}
 
 		releaseFile, ok := configuration.ReleaseFiles[file]
@@ -83,26 +107,17 @@ func ApplyVersionToFiles(files []string, newVersionParts map[string]string, conf
 			releaseFile.ParseTemplate = configuration.ParseTemplate
 		}
 
-		buff := bytes.NewBufferString("")
-		for idx, serializeTemplate := range releaseFile.SerializeTemplate {
-			tmpl, err := template.New(fmt.Sprintf("file_%s_template_%d", file, idx)).Parse(serializeTemplate)
-			if err != nil {
-				return errorx.Decorate(err, "invalid version serialization template")
-			}
-
-			err = tmpl.Execute(buff, newVersionParts)
-			if err != nil {
-				continue
-			}
-			break
+		versionSerialized, err := SerializeVersion(newVersionParts, releaseFile.SerializeTemplate)
+		if err != nil {
+			return errorx.Decorate(err, "could not serialize new version")
 		}
 
-		if buff.Len() == 0 {
+		if len(versionSerialized) == 0 {
 			return errorx.IllegalFormat.New("could not serialize new version using any available serialization templates")
 		}
 
-		contents = releaseFile.ParseTemplate.ReplaceAllLiteral(contents, buff.Bytes())
-		err = ioutil.WriteFile(file, contents, 0644)
+		contents = releaseFile.ParseTemplate.ReplaceAllLiteral(contents, versionSerialized)
+		err = ioutil.WriteFile(file, contents, fileInfo.Mode())
 		if err != nil {
 			return errorx.Decorate(err, fmt.Sprintf("could not write file: %s", file))
 		}

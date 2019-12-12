@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/joomcode/errorx"
 	"os"
 	"regexp"
 
@@ -45,6 +46,21 @@ func NewFromEnv() (*Configuration, error) {
 
 func (c *Configuration) MergeWith(newConfig Configuration) error {
 	return mergo.Merge(c, newConfig)
+}
+
+func (c Configuration) SaveToFile(file *os.File) error {
+	bytes, err := yaml.Marshal(&c)
+	if err != nil {
+		return errorx.Decorate(err, "could not serialize config file")
+	}
+
+	_, err = file.Write(bytes)
+
+	if err != nil {
+		return errorx.Decorate(err, "could not save config to a file")
+	}
+
+	return nil
 }
 
 func NewFromFile(file *os.File) (*Configuration, error) {

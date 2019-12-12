@@ -2,16 +2,14 @@ package main
 
 import (
 	"fmt"
+	"github.com/harnash/goversion/pkg/bump"
+	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
 	"os"
-
-	"github.com/harnash/goversion/pkg/bump"
 
 	vcs2 "github.com/harnash/goversion/internal/vcs"
 
 	"github.com/harnash/goversion/pkg/config"
-
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func main() {
@@ -74,6 +72,11 @@ func main() {
 	newVersionParts, err := bump.VersionBump(*part, cfg)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	// add self config file to bump current version
+	if configFile != nil {
+		cfg.ReleaseFiles[(*configFile).Name()] = config.ReleaseFile{}
 	}
 
 	var filesToProcess []string
