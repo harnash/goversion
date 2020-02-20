@@ -6,25 +6,71 @@ import (
 	"github.com/joomcode/errorx"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strconv"
 	"text/template"
 
 	"github.com/harnash/goversion/pkg/config"
 )
 
-func VersionBump(part string, configuration *config.Configuration) (map[string]string, error) {
-	matchedVersions := configuration.ParseTemplate.FindStringSubmatch(configuration.CurrentVersion)
-	if matchedVersions == nil {
-		return nil, errorx.IllegalArgument.New("could not parse current version")
+type VersionPart struct {
+	name string
+	value string
+	customPart config.ReleasePart
+}
+
+type Version struct {
+	parts []VersionPart
+	parseTemplate *regexp.Regexp
+	serializeTemplate []string
+}
+// TODO: serialization to proper string, serialization of current version, proper major bumping - reset minor etc.
+// TODO: "constructor"
+// TODO: Test, test, tests
+
+func NewVersion() *Version {
+	return &Version{}
+}
+
+func (v Version) Serialize() ([]byte, error) {
+	buff := bytes.NewBufferString("")
+	for idx, serializeTemplate := range v.serializeTemplate {
+		tmpl, err := template.New(fmt.Sprintf("template_%d", idx)).Parse(serializeTemplate)
+		if err != nil {
+			return nil, errorx.Decorate(err, "invalid version serialization template")
+		}
+
+		var data = make(map[string]string, len(v.parts));
+		for _, part := range v.parts {
+			data[part.name] = part.value
+		}
+		err = tmpl.Execute(buff, data)
+		if err != nil {
+			continue
+		}
+		break
 	}
 
-	if len(configuration.ParseTemplate.SubexpNames()) == 0 {
-		return nil, errorx.IllegalFormat.New("parse template has no meaningful part names")
+	return buff.Bytes(), nil
+}
+
+func (v *Version) Bump(part string) error {
+	serializedVersion, err := v.Serialize()
+	if err != nil {
+		return errorx.Decorate(err, "could not serialize version")
+	}
+	matchedVersions := v.parseTemplate.FindStringSubmatch(string(serializedVersion))
+	if matchedVersions == nil {
+		return errorx.IllegalArgument.New("could not parse current version")
+	}
+
+	if len(v.parseTemplate.SubexpNames()) == 0 {
+		return errorx.IllegalFormat.New("parse template has no meaningful part names")
 	}
 
 	var partValue string
 	versionParts := map[string]string{}
-	for idx, partName := range configuration.ParseTemplate.SubexpNames() {
+	for idx, partName := range v.parseTemplate.SubexpNames() {
 		if partName == "" {
 			continue
 		}
@@ -35,14 +81,22 @@ func VersionBump(part string, configuration *config.Configuration) (map[string]s
 	}
 
 	if partValue == "" {
-		return nil, errorx.IllegalArgument.New("could not find version part to bump")
+		return errorx.IllegalArgument.New("could not find version part to bump")
 	}
 
-	partConfig, ok := configuration.ReleaseParts[part]
-	if ok {
-		nextValue := partConfig.FirstValue
+	found := false
+	for _, partConfig := range v.parts {
+		if partConfig.name == part {
+			found = true
+		}
+
+		if !found {
+			continue
+		}
+
+		nextValue := partConfig.customPart.FirstValue
 		foundValue := false
-		for _, value := range partConfig.Values {
+		for _, value := range partConfig.customPart.Values {
 			if value == partValue {
 				foundValue = true
 			} else if foundValue {
@@ -51,37 +105,39 @@ func VersionBump(part string, configuration *config.Configuration) (map[string]s
 			}
 		}
 		versionParts[part] = nextValue
-	} else {
+	}
+
+	if !found {
 		intVersion, err := strconv.Atoi(partValue)
 		if err != nil {
-			return nil, errorx.IllegalFormat.New("could not parse version part to integer")
+			return errorx.IllegalFormat.New("could not parse version part to integer")
 		}
 		versionParts[part] = strconv.Itoa(intVersion+1)
 
 	}
 
-	return versionParts, nil
+	return nil
 }
 
-func SerializeVersion(versionParts map[string]string, serializeTemplate []string) ([]byte, error) {
-	buff := bytes.NewBufferString("")
-	for idx, serializeTemplate := range serializeTemplate {
-		tmpl, err := template.New(fmt.Sprintf("template_%d", idx)).Parse(serializeTemplate)
-		if err != nil {
-			return nil, errorx.Decorate(err, "invalid version serialization template")
-		}
-
-		err = tmpl.Execute(buff, versionParts)
-		if err != nil {
-			continue
-		}
-		break
+func (v Version) ApplyFileConfiguration(fileName string, configuration *config.Configuration) Version {
+	releaseFile, ok := configuration.ReleaseFiles[fileName]
+	if !ok {
+		return v
 	}
 
-	return buff.Bytes(), nil
+	newVersion := v
+	if len(releaseFile.SerializeTemplate) != 0 {
+		newVersion.serializeTemplate = releaseFile.SerializeTemplate
+	}
+
+	if releaseFile.ParseTemplate != nil {
+		newVersion.parseTemplate = releaseFile.ParseTemplate
+	}
+
+	return newVersion
 }
 
-func ApplyVersionToFiles(files []string, newVersionParts map[string]string, configuration *config.Configuration) error {
+func ApplyVersionToFiles(files []string, newVersion *Version, configuration *config.Configuration) error {
 	for _, file := range files {
 		contents, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -93,21 +149,9 @@ func ApplyVersionToFiles(files []string, newVersionParts map[string]string, conf
 			return errorx.Decorate(err, fmt.Sprintf("could not get stat info for file: %s", file))
 		}
 
-		releaseFile, ok := configuration.ReleaseFiles[file]
-		if !ok {
-			releaseFile = config.ReleaseFile{
-				ParseTemplate:     configuration.ParseTemplate,
-				SerializeTemplate: configuration.SerializeTemplate,
-			}
-		}
-		if len(releaseFile.SerializeTemplate) == 0 {
-			releaseFile.SerializeTemplate = configuration.SerializeTemplate
-		}
-		if releaseFile.ParseTemplate == nil {
-			releaseFile.ParseTemplate = configuration.ParseTemplate
-		}
+		ver := newVersion.ApplyFileConfiguration(file, configuration)
 
-		versionSerialized, err := SerializeVersion(newVersionParts, releaseFile.SerializeTemplate)
+		versionSerialized, err := ver.Serialize()
 		if err != nil {
 			return errorx.Decorate(err, "could not serialize new version")
 		}
@@ -116,7 +160,7 @@ func ApplyVersionToFiles(files []string, newVersionParts map[string]string, conf
 			return errorx.IllegalFormat.New("could not serialize new version using any available serialization templates")
 		}
 
-		contents = releaseFile.ParseTemplate.ReplaceAllLiteral(contents, versionSerialized)
+		contents = ver.parseTemplate.ReplaceAllLiteral(contents, versionSerialized)
 		err = ioutil.WriteFile(file, contents, fileInfo.Mode())
 		if err != nil {
 			return errorx.Decorate(err, fmt.Sprintf("could not write file: %s", file))

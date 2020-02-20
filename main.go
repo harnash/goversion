@@ -69,7 +69,8 @@ func main() {
 	}
 	fmt.Println(vcs)
 
-	newVersionParts, err := bump.VersionBump(*part, cfg)
+	version := bump.NewVersion()
+	err = version.Bump(*part)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -90,7 +91,7 @@ func main() {
 		filesToProcess = *files
 	}
 
-	err = bump.ApplyVersionToFiles(filesToProcess, newVersionParts, cfg)
+	err = bump.ApplyVersionToFiles(filesToProcess, version, cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
