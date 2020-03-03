@@ -20,15 +20,15 @@ type Configuration struct {
 	DryRunMode        bool                   `yaml:"dry_run"`
 	AllowDirty        bool                   `yaml:"allow_dirty"`
 	List              bool                   `yaml:"list"`
-	SerializeTemplate []string               `yaml:"serialize"`
+	SerializeTemplate []string               `yaml:"serialize,flow"`
 	ParseTemplate     *regexp.Regexp         `yaml:"parse"`
-	ReleaseParts      map[string]ReleasePart `yaml:"parts"`
-	ReleaseFiles      map[string]ReleaseFile `yaml:"files"`
+	ReleaseParts      map[string]ReleasePart `yaml:"parts,flow"`
+	ReleaseFiles      map[string]ReleaseFile `yaml:"files,flow"`
 }
 
 type ReleasePart struct {
-	OptionalValue string   `yaml:"optional_value"`
-	Values        []string `yaml:"values"`
+	OptionalValue string   `yaml:"optional_value,omitempty"`
+	Values        []string `yaml:"values,flow"`
 	FirstValue    string   `yaml:"first_value"`
 }
 
@@ -36,7 +36,7 @@ type ReleaseFile struct {
 	Search            string         `yaml:"search"`
 	Replace           string         `yaml:"replace"`
 	ParseTemplate     *regexp.Regexp `yaml:"parse"`
-	SerializeTemplate []string       `yaml:"serialize"`
+	SerializeTemplate []string       `yaml:"serialize,flow"`
 }
 
 func NewFromEnv() (*Configuration, error) {

@@ -69,7 +69,8 @@ func main() {
 	}
 	fmt.Println(vcs)
 
-	version := bump.NewVersion()
+	//TODO: Fetch current version parts
+	version := bump.NewVersion([]bump.VersionPart{}, cfg.ParseTemplate, cfg.SerializeTemplate)
 	err = version.Bump(*part)
 	if err != nil {
 		log.Fatal(err)

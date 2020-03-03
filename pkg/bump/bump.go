@@ -16,7 +16,15 @@ import (
 type VersionPart struct {
 	name string
 	value string
-	customPart config.ReleasePart
+	customPart config.ReleasePart //TODO: move out from config
+}
+
+func NewVersionPart(name, value string, customPart config.ReleasePart) *VersionPart {
+	return &VersionPart{
+		name,
+		value,
+		customPart,
+	}
 }
 
 type Version struct {
@@ -28,8 +36,12 @@ type Version struct {
 // TODO: "constructor"
 // TODO: Test, test, tests
 
-func NewVersion() *Version {
-	return &Version{}
+func NewVersion(parts []VersionPart, parseTemplate *regexp.Regexp, serializeTemplate []string) *Version {
+	return &Version{
+		parts,
+		parseTemplate,
+		serializeTemplate,
+	}
 }
 
 func (v Version) Serialize() ([]byte, error) {
