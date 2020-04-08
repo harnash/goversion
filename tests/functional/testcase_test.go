@@ -44,7 +44,7 @@ func (suite *TestCaseTest) TestSimpleSuiteSetup() {
 	suite.NotEmpty(suite.sourceFixturePath)
 	suite.NotEmpty(suite.fixturePath)
 
-	err := suite.compareDir(suite.sourceFixturePath, suite.fixturePath)
+	err := suite.compareDir(suite.GetSourceFixturePath(), suite.fixturePath)
 	suite.NoError(err)
 }
 
@@ -55,7 +55,7 @@ func TestCaseTestSuite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not get current working dir: %v", err)
 	}
-	testCase.SetFixture(path.Join(curPath, "fixtures/TestCase01"))
+	testCase.SetSourceFixture(path.Join(curPath, "fixtures/TestCase01"))
 
 	suite.Run(t, testCase)
 }

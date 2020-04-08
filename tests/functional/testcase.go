@@ -8,15 +8,44 @@ import (
 	"path"
 )
 
+const DefaultInitialSubfolder = "in"
+const DefaultFinalSubfolder = "out"
+
 type BaseTestCase struct {
 	suite.Suite
 	sourceFixturePath string
+	initialSubfolder string
+	finalSubfolder string
 	fixturePath string
 }
 
 
-func (tc *BaseTestCase) SetFixture(path string) {
+func (tc *BaseTestCase) SetSourceFixture(path string) {
 	tc.sourceFixturePath = path
+}
+
+func (tc *BaseTestCase) SetInitialFixtureSubfolder(folder string) {
+	tc.initialSubfolder = folder
+}
+
+func (tc *BaseTestCase) SetFinalFixtureSubfolder(folder string) {
+	tc.finalSubfolder = folder
+}
+
+func (tc BaseTestCase) GetSourceFixturePath() string {
+	if tc.initialSubfolder == "" {
+		return path.Join(tc.sourceFixturePath, DefaultInitialSubfolder)
+	} else {
+		return path.Join(tc.sourceFixturePath, tc.initialSubfolder)
+	}
+}
+
+func (tc BaseTestCase) GetFinalFixturePatH() string {
+	if tc.finalSubfolder == "" {
+		return path.Join(tc.sourceFixturePath, DefaultInitialSubfolder)
+	} else {
+		return path.Join(tc.sourceFixturePath, tc.finalSubfolder)
+	}
 }
 
 func (tc *BaseTestCase) SetupSuite() {
@@ -26,8 +55,11 @@ func (tc *BaseTestCase) SetupSuite() {
 		tc.fixturePath, err = ioutil.TempDir("", "fixtures-*")
 		tc.NoError(err, "Could not create temporary directory for fixtures")
 
-		err = tc.copyDir(tc.sourceFixturePath, tc.fixturePath)
-		tc.NoError(err, "Could not copy fixtures from %s", tc.sourceFixturePath)
+		sourcePath := tc.GetSourceFixturePath()
+		err = tc.copyDir(sourcePath, tc.fixturePath)
+		if !tc.NoError(err, "Could not copy fixtures from %s", sourcePath) {
+			tc.Fail("failed to setup test suite fixtures")
+		}
 	}
 }
 
