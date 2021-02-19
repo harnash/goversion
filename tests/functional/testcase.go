@@ -15,19 +15,26 @@ type BaseTestCase struct {
 }
 
 
-func (tc *BaseTestCase) SetFixture(path string) {
+func (tc *BaseTestCase) SetSourceFixturePath(path string) {
 	tc.sourceFixturePath = path
 }
 
+func (tc *BaseTestCase) GetSourceFixturePath() string {
+	return tc.sourceFixturePath
+}
+
 func (tc *BaseTestCase) SetupSuite() {
-	if tc.sourceFixturePath != "" {
-		var err error
+	var err error
+	tc.fixturePath, err = ioutil.TempDir("", "fixtures-*")
+	tc.NoError(err, "Could not create temporary directory for fixtures")
 
-		tc.fixturePath, err = ioutil.TempDir("", "fixtures-*")
-		tc.NoError(err, "Could not create temporary directory for fixtures")
+	if !tc.DirExists(tc.sourceFixturePath, "source fixture folder does not exists") {
+		tc.FailNow("fixtures not configured properly")
+	}
 
-		err = tc.copyDir(tc.sourceFixturePath, tc.fixturePath)
-		tc.NoError(err, "Could not copy fixtures from %s", tc.sourceFixturePath)
+	err = tc.copyDir(tc.sourceFixturePath, tc.fixturePath)
+	if !tc.NoError(err, "Could not copy fixtures from %s", tc.sourceFixturePath) {
+		tc.FailNow("failed to setup test suite fixtures")
 	}
 }
 
