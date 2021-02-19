@@ -8,58 +8,33 @@ import (
 	"path"
 )
 
-const DefaultInitialSubfolder = "in"
-const DefaultFinalSubfolder = "out"
-
 type BaseTestCase struct {
 	suite.Suite
 	sourceFixturePath string
-	initialSubfolder string
-	finalSubfolder string
 	fixturePath string
 }
 
 
-func (tc *BaseTestCase) SetSourceFixture(path string) {
+func (tc *BaseTestCase) SetSourceFixturePath(path string) {
 	tc.sourceFixturePath = path
 }
 
-func (tc *BaseTestCase) SetInitialFixtureSubfolder(folder string) {
-	tc.initialSubfolder = folder
-}
-
-func (tc *BaseTestCase) SetFinalFixtureSubfolder(folder string) {
-	tc.finalSubfolder = folder
-}
-
-func (tc BaseTestCase) GetSourceFixturePath() string {
-	if tc.initialSubfolder == "" {
-		return path.Join(tc.sourceFixturePath, DefaultInitialSubfolder)
-	} else {
-		return path.Join(tc.sourceFixturePath, tc.initialSubfolder)
-	}
-}
-
-func (tc BaseTestCase) GetFinalFixturePatH() string {
-	if tc.finalSubfolder == "" {
-		return path.Join(tc.sourceFixturePath, DefaultInitialSubfolder)
-	} else {
-		return path.Join(tc.sourceFixturePath, tc.finalSubfolder)
-	}
+func (tc *BaseTestCase) GetSourceFixturePath() string {
+	return tc.sourceFixturePath
 }
 
 func (tc *BaseTestCase) SetupSuite() {
-	if tc.sourceFixturePath != "" {
-		var err error
+	var err error
+	tc.fixturePath, err = ioutil.TempDir("", "fixtures-*")
+	tc.NoError(err, "Could not create temporary directory for fixtures")
 
-		tc.fixturePath, err = ioutil.TempDir("", "fixtures-*")
-		tc.NoError(err, "Could not create temporary directory for fixtures")
+	if !tc.DirExists(tc.sourceFixturePath, "source fixture folder does not exists") {
+		tc.FailNow("fixtures not configured properly")
+	}
 
-		sourcePath := tc.GetSourceFixturePath()
-		err = tc.copyDir(sourcePath, tc.fixturePath)
-		if !tc.NoError(err, "Could not copy fixtures from %s", sourcePath) {
-			tc.Fail("failed to setup test suite fixtures")
-		}
+	err = tc.copyDir(tc.sourceFixturePath, tc.fixturePath)
+	if !tc.NoError(err, "Could not copy fixtures from %s", tc.sourceFixturePath) {
+		tc.FailNow("failed to setup test suite fixtures")
 	}
 }
 
