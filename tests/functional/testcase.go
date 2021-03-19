@@ -3,6 +3,7 @@ package functional
 import (
 	"fmt"
 	"github.com/joomcode/errorx"
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/suite"
 	"io/ioutil"
 	"os"
@@ -74,15 +75,22 @@ func (tc *BaseTestCase) compareDir(src, dst string) error {
 			}
 		}
 
-		dstItem, err := os.Stat(dstPath)
-
+		dmp := diffmatchpatch.New()
+		srcData, err := ioutil.ReadFile(srcPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not read contents of a file: %v: %v", srcPath, err)
+		}
+		dstData, err := ioutil.ReadFile(dstPath)
+		if err != nil {
+			return fmt.Errorf("could not read contents of a file: %v: %v", dstPath, err)
 		}
 
-		if srcItem.Size() != dstItem.Size() {
-			return fmt.Errorf("sizes of source and destination files differ: %s (%d), %s (%d)",
-				srcPath, srcItem.Size(), dstPath, dstItem.Size())
+		diffData := dmp.DiffMain(string(dstData), string(srcData), true)
+		for _, diff := range diffData {
+			if diff.Type != diffmatchpatch.DiffEqual {
+				return fmt.Errorf("files differ: %s != %s:\n%s",
+					srcPath, dstPath, dmp.DiffPrettyText(diffData))
+			}
 		}
 	}
 
